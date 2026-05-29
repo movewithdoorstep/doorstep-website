@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Contact / book a visit — Doorstep physical therapy</title>
   <meta name="description" content="Call Doorstep to book an in-home physical therapy visit, or send a message and we'll call you back. Phone first, no app required.">
-  <link rel="canonical" href="https://doorsteptherapy.example/contact.html">
+  <link rel="canonical" href="https://movewithdoorstep.com/contact.html">
   <style>
 /* =========================================================
    Doorstep — shared stylesheet
@@ -382,7 +382,7 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
           <h2>Call us</h2>
           <p>Open during business hours. We'll answer your questions and book your visit.</p>
           <a class="btn btn--phone btn--primary" href="tel:+15550102030" style="margin-top:.5rem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11 11 0 0 0 3.5.56 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.3a1 1 0 0 1 1 1 11 11 0 0 0 .56 3.5 1 1 0 0 1-.24 1L6.6 10.8z" fill="currentColor"/></svg> (555) 010-2030</a>
-          <p class="muted" style="margin-top:1rem">Prefer email? <a href="mailto:hello@doorsteptherapy.example">hello@doorsteptherapy.example</a></p>
+          <p class="muted" style="margin-top:1rem">Prefer email? <a href="mailto:hello@movewithdoorstep.com">hello@movewithdoorstep.com</a></p>
         </div>
       </div>
       <div>
@@ -496,6 +496,21 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
   // Paste the deployed Apps Script Web app URL between the quotes below.
   var DOORSTEP_FORM_ENDPOINT = "https://script.google.com/macros/s/AKfycbzHNMJ2oTXcJ-pnOH7pxOdRfP8fPzsFHfK5zutAEmlMrXNcEbn8MbHm1Ya5xVvs4Hrucw/exec";
 
+  var MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+  function readAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        var s = String(r.result);
+        var comma = s.indexOf(',');
+        resolve(comma === -1 ? s : s.slice(comma + 1)); // strip "data:...;base64,"
+      };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
   document.querySelectorAll('form[data-sheet]').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -509,11 +524,21 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       var originalLabel = btn ? btn.innerHTML : '';
       if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
 
-      fetch(DOORSTEP_FORM_ENDPOINT, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: new URLSearchParams(new FormData(form))
-      }).then(function () {
+      // Split text fields from any file field.
+      var params = new URLSearchParams();
+      var file = null;
+      new FormData(form).forEach(function (value, key) {
+        if (value instanceof File) { if (value && value.size > 0) { file = value; } }
+        else { params.append(key, value); }
+      });
+
+      function send() {
+        return fetch(DOORSTEP_FORM_ENDPOINT, {
+          method: 'POST', mode: 'no-cors', body: params
+        });
+      }
+
+      function onSuccess() {
         var ok = document.createElement('div');
         ok.className = 'notice';
         ok.setAttribute('role', 'status');
@@ -523,10 +548,27 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
         form.reset();
         form.style.display = 'none';
         ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }).catch(function () {
+      }
+      function onError() {
         if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
         alert('Sorry, something went wrong sending your message. Please call us instead.');
-      });
+      }
+
+      if (file) {
+        if (file.size > MAX_FILE_BYTES) {
+          if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+          alert('That file is larger than 8 MB. Please upload a smaller file or paste a link instead.');
+          return;
+        }
+        readAsBase64(file).then(function (b64) {
+          params.append('resume_b64', b64);
+          params.append('resume_name', file.name);
+          params.append('resume_type', file.type || 'application/octet-stream');
+          return send();
+        }).then(onSuccess).catch(onError);
+      } else {
+        send().then(onSuccess).catch(onError);
+      }
     });
   });
 })();
