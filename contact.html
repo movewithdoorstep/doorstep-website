@@ -388,7 +388,8 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       <div>
         <h2>Or send a message</h2>
         <p class="muted">Fill this out and we'll call you back. No app, no account needed.</p>
-        <form class="form" action="https://formspree.io/f/REPLACE_WITH_FORM_ID" method="POST">
+        <form class="form" data-sheet="contact" method="POST">
+          <input type="hidden" name="formType" value="contact">
           <label for="name">Your name <span class="req">*</span></label>
           <input id="name" name="name" type="text" autocomplete="name" required>
 
@@ -408,7 +409,7 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
           <button class="btn btn--navy btn--lg" type="submit">Send message</button>
           <p class="help">By sending this you agree to be contacted by Doorstep. We never sell your information.</p>
         </form>
-        <div class="placeholder" style="margin-top:1rem"><strong>Form setup placeholder.</strong> Replace the Formspree form ID in the action URL (or wire Netlify Forms) before launch.</div>
+        <p class="help" id="form-status-note">Submissions are saved to our secure intake sheet. If the form isn't connected yet, please call.</p>
       </div>
     </div>
   </div>
@@ -489,6 +490,44 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
   document.querySelectorAll('.main-nav a').forEach(function (a) {
     var target = a.getAttribute('href');
     if (target === here) { a.setAttribute('aria-current', 'page'); }
+  });
+
+  // ---- Form submission → Google Sheet (via Apps Script web app) ----
+  // Paste the deployed Apps Script Web app URL between the quotes below.
+  var DOORSTEP_FORM_ENDPOINT = "https://script.google.com/macros/s/AKfycbzHNMJ2oTXcJ-pnOH7pxOdRfP8fPzsFHfK5zutAEmlMrXNcEbn8MbHm1Ya5xVvs4Hrucw/exec";
+
+  document.querySelectorAll('form[data-sheet]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      if (DOORSTEP_FORM_ENDPOINT.indexOf('REPLACE_WITH') !== -1) {
+        alert('This form isn’t connected yet. Please call us in the meantime.');
+        return;
+      }
+
+      var btn = form.querySelector('button[type="submit"]');
+      var originalLabel = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
+
+      fetch(DOORSTEP_FORM_ENDPOINT, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: new URLSearchParams(new FormData(form))
+      }).then(function () {
+        var ok = document.createElement('div');
+        ok.className = 'notice';
+        ok.setAttribute('role', 'status');
+        ok.innerHTML = '<strong>Thank you — your message has been sent.</strong> ' +
+                       'We’ll be in touch soon. If it’s urgent, please call us.';
+        form.parentNode.insertBefore(ok, form);
+        form.reset();
+        form.style.display = 'none';
+        ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }).catch(function () {
+        if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+        alert('Sorry, something went wrong sending your message. Please call us instead.');
+      });
+    });
   });
 })();
 
