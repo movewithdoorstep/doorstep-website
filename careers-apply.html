@@ -394,12 +394,9 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       <label for="a-license">License / credentials</label>
       <input id="a-license" name="license" type="text" placeholder="e.g. PT, DPT — VA license #">
 
-      <label for="a-resume">Upload your resume</label>
-      <input id="a-resume" name="resume_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-      <p class="help" style="color:#9fb0c1">PDF or Word, up to 8&nbsp;MB. Prefer a link? Paste one below and you can skip this.</p>
-
-      <label for="a-link">Or link to your resume / LinkedIn</label>
-      <input id="a-link" name="resume_link" type="url" placeholder="https://">
+      <label for="a-link">Link to your resume <span class="req">*</span></label>
+      <input id="a-link" name="resume_link" type="url" placeholder="https://" required>
+      <p class="help" style="color:#9fb0c1">Paste a shareable link to your resume (Google Drive or Dropbox) or your LinkedIn profile. Please set sharing so we can view it.</p>
 
       <label for="a-why">Why Doorstep? <span class="req">*</span></label>
       <textarea id="a-why" name="why" rows="4" required placeholder="A few sentences. Be yourself."></textarea>
@@ -408,7 +405,7 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       <p class="help" style="color:#9fb0c1">By applying you consent to Doorstep contacting you about employment. We don't share your info.</p>
     </form>
     <div class="placeholder" style="margin-top:1rem;border-color:#FFC24B;background:rgba(255,194,75,.12);color:#ffe7b3">
-      <strong style="color:#FFC24B">Heads up:</strong> attach your resume as a PDF or Word file (up to 8&nbsp;MB), or paste a link. Applications save straight to our intake sheet.
+      <strong style="color:#FFC24B">Heads up:</strong> share your resume as a link (Google Drive, Dropbox, or LinkedIn) and set it so we can view it. Applications save straight to our intake sheet.
     </div>
   </div>
 </section>
