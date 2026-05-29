@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Refer a patient — Doorstep Physical Therapy</title>
-  <meta name="description" content="Intake form for attorneys and physicians referring a patient to Doorstep, or use the MoveDocs portal for personal-injury cases.">
+  <meta name="description" content="Intake form for attorneys and physicians referring a patient to Doorstep for in-home physical therapy.">
   <link rel="canonical" href="https://doorsteptherapy.example/partners-refer.html">
   <style>
 /* =========================================================
@@ -332,7 +332,7 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
 
 </style>
   <meta property="og:title" content="Refer a patient — Doorstep Physical Therapy">
-  <meta property="og:description" content="Intake form for attorneys and physicians referring a patient to Doorstep, or use the MoveDocs portal for personal-injury cases.">
+  <meta property="og:description" content="Intake form for attorneys and physicians referring a patient to Doorstep for in-home physical therapy.">
   <meta property="og:type" content="website">
   
 </head>
@@ -370,14 +370,13 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
   <div class="container">
     <p class="breadcrumb"><a href="index.html">Home</a> &rsaquo; For partners &rsaquo; Refer a patient</p>
     <h1>Refer a patient</h1>
-    <p class="lead">Complete the intake below and we'll confirm receipt and handle scheduling. For personal-injury cases, you may also use the MoveDocs portal.</p>
+    <p class="lead">Complete the intake below and we'll confirm receipt and handle scheduling.</p>
   </div>
 </section>
 
 <section class="section">
   <div class="container">
-    <p><a class="btn btn--ghost" href="#movedocs-portal-placeholder">Open MoveDocs portal for PI referrals (placeholder link)</a></p>
-    <form class="form" data-sheet="referral" method="POST" style="margin-top:1.5rem">
+    <form class="form" data-sheet="referral" method="POST">
       <input type="hidden" name="formType" value="referral">
       <label for="ref-type">I am a <span class="req">*</span></label>
       <select id="ref-type" name="referrer_type" required>
@@ -419,7 +418,6 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       <button class="btn btn--navy btn--lg" type="submit">Submit referral</button>
       <p class="help">Please do not include full medical records in this form. We'll coordinate secure records transfer after we confirm the referral.</p>
     </form>
-    <div class="placeholder" style="margin-top:1rem"><strong>Portal setup placeholder.</strong> Replace the MoveDocs portal link before launch. (Form submissions are saved to the intake sheet.)</div>
   </div>
 </section>
 
@@ -504,6 +502,21 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
   // Paste the deployed Apps Script Web app URL between the quotes below.
   var DOORSTEP_FORM_ENDPOINT = "https://script.google.com/macros/s/AKfycbzHNMJ2oTXcJ-pnOH7pxOdRfP8fPzsFHfK5zutAEmlMrXNcEbn8MbHm1Ya5xVvs4Hrucw/exec";
 
+  var MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+  function readAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        var s = String(r.result);
+        var comma = s.indexOf(',');
+        resolve(comma === -1 ? s : s.slice(comma + 1)); // strip "data:...;base64,"
+      };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
   document.querySelectorAll('form[data-sheet]').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -517,11 +530,21 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       var originalLabel = btn ? btn.innerHTML : '';
       if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
 
-      fetch(DOORSTEP_FORM_ENDPOINT, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: new URLSearchParams(new FormData(form))
-      }).then(function () {
+      // Split text fields from any file field.
+      var params = new URLSearchParams();
+      var file = null;
+      new FormData(form).forEach(function (value, key) {
+        if (value instanceof File) { if (value && value.size > 0) { file = value; } }
+        else { params.append(key, value); }
+      });
+
+      function send() {
+        return fetch(DOORSTEP_FORM_ENDPOINT, {
+          method: 'POST', mode: 'no-cors', body: params
+        });
+      }
+
+      function onSuccess() {
         var ok = document.createElement('div');
         ok.className = 'notice';
         ok.setAttribute('role', 'status');
@@ -531,10 +554,27 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
         form.reset();
         form.style.display = 'none';
         ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }).catch(function () {
+      }
+      function onError() {
         if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
         alert('Sorry, something went wrong sending your message. Please call us instead.');
-      });
+      }
+
+      if (file) {
+        if (file.size > MAX_FILE_BYTES) {
+          if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+          alert('That file is larger than 8 MB. Please upload a smaller file or paste a link instead.');
+          return;
+        }
+        readAsBase64(file).then(function (b64) {
+          params.append('resume_b64', b64);
+          params.append('resume_name', file.name);
+          params.append('resume_type', file.type || 'application/octet-stream');
+          return send();
+        }).then(onSuccess).catch(onError);
+      } else {
+        send().then(onSuccess).catch(onError);
+      }
     });
   });
 })();

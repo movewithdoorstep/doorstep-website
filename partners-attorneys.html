@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>For attorneys — Doorstep Physical Therapy</title>
-  <meta name="description" content="Doorstep provides defensible documentation, timely records and billing, lien/LOP handling for personal-injury firms.">
+  <meta name="description" content="Doorstep provides defensible documentation, timely records and billing, and lien/LOP handling for personal-injury firms.">
   <link rel="canonical" href="https://doorsteptherapy.example/partners-attorneys.html">
   <style>
 /* =========================================================
@@ -332,7 +332,7 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
 
 </style>
   <meta property="og:title" content="For attorneys — Doorstep Physical Therapy">
-  <meta property="og:description" content="Doorstep provides defensible documentation, timely records and billing, lien/LOP handling for personal-injury firms.">
+  <meta property="og:description" content="Doorstep provides defensible documentation, timely records and billing, and lien/LOP handling for personal-injury firms.">
   <meta property="og:type" content="website">
   
 </head>
@@ -383,26 +383,17 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       <div class="card"><h3>Defensible documentation</h3><p>Thorough initial evaluations, objective measures, consistent progress notes, and clear discharge summaries &mdash; built to withstand scrutiny.</p></div>
       <div class="card"><h3>Timely records &amp; billing</h3><p>Records and itemized billing delivered on the timeline your case management requires, with responsive follow-up on requests.</p></div>
       <div class="card"><h3>Lien / LOP handling</h3><p>We treat qualifying clients on a lien or Letter of Protection and coordinate financial documentation directly with your office.</p></div>
-      <div class="card"><h3>Documentation</h3><p>Billing, records, and case funding are managed through the our platform for a clean, trackable workflow.</p></div>
+      <div class="card"><h3>Streamlined billing &amp; records</h3><p>Billing, records, and case funding are handled in one clean, trackable workflow &mdash; so requests don't fall through the cracks.</p></div>
     </div>
 
     <div class="placeholder">
-      <strong> Lien / Letter of Protection (LOP) &mdash; do not publish as-is.</strong>
-This is how Doorstep gets paid without insurance. Instead of billing now, Doorstep treats on credit and is repaid out of the eventual settlement or judgment:
-
-The patient signs a lien agreement assigning a portion of their settlement to cover Doorstep's bill. The attorney signs an LOP acknowledging the lien and agreeing to protect (hold back and pay) Doorstep's balance from settlement proceeds before disbursing to the client.
-No upfront cost to the patient — they pay from the case outcome.
-Doorstep carries the risk. If the case loses or settles low, repayment may be reduced or not happen. Your agreements need to spell out what happens then (e.g., whether the patient remains responsible, how reductions are handled).
+      <strong>PENDING ATTORNEY REVIEW &mdash; do not publish as-is.</strong>
+      Any description of the attorney referral relationship, lien/LOP terms, and the funding arrangement must be reviewed by licensed counsel before publishing.
     </div>
-
 
     <h2>Refer a client</h2>
     <p>Sending us a client is straightforward. Use our intake form and we'll handle scheduling and confirmation, then keep your office updated throughout treatment.</p>
     <p><a class="btn btn--navy btn--lg" href="partners-refer.html">Refer a client &rarr;</a></p>
-
-    <h2>The MoveDocs portal</h2>
-    <p>For records, billing status, and funding, partner firms use the MoveDocs portal.</p>
-    <p><a class="btn btn--ghost" href="#movedocs-portal-placeholder">Open MoveDocs portal (placeholder link)</a></p>
   </div>
 </section>
 
@@ -489,6 +480,86 @@ Doorstep carries the risk. If the case loses or settles low, repayment may be re
   document.querySelectorAll('.main-nav a').forEach(function (a) {
     var target = a.getAttribute('href');
     if (target === here) { a.setAttribute('aria-current', 'page'); }
+  });
+
+  // ---- Form submission → Google Sheet (via Apps Script web app) ----
+  // Paste the deployed Apps Script Web app URL between the quotes below.
+  var DOORSTEP_FORM_ENDPOINT = "https://script.google.com/macros/s/AKfycbzHNMJ2oTXcJ-pnOH7pxOdRfP8fPzsFHfK5zutAEmlMrXNcEbn8MbHm1Ya5xVvs4Hrucw/exec";
+
+  var MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+  function readAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        var s = String(r.result);
+        var comma = s.indexOf(',');
+        resolve(comma === -1 ? s : s.slice(comma + 1)); // strip "data:...;base64,"
+      };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  document.querySelectorAll('form[data-sheet]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      if (DOORSTEP_FORM_ENDPOINT.indexOf('REPLACE_WITH') !== -1) {
+        alert('This form isn’t connected yet. Please call us in the meantime.');
+        return;
+      }
+
+      var btn = form.querySelector('button[type="submit"]');
+      var originalLabel = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
+
+      // Split text fields from any file field.
+      var params = new URLSearchParams();
+      var file = null;
+      new FormData(form).forEach(function (value, key) {
+        if (value instanceof File) { if (value && value.size > 0) { file = value; } }
+        else { params.append(key, value); }
+      });
+
+      function send() {
+        return fetch(DOORSTEP_FORM_ENDPOINT, {
+          method: 'POST', mode: 'no-cors', body: params
+        });
+      }
+
+      function onSuccess() {
+        var ok = document.createElement('div');
+        ok.className = 'notice';
+        ok.setAttribute('role', 'status');
+        ok.innerHTML = '<strong>Thank you — your message has been sent.</strong> ' +
+                       'We’ll be in touch soon. If it’s urgent, please call us.';
+        form.parentNode.insertBefore(ok, form);
+        form.reset();
+        form.style.display = 'none';
+        ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      function onError() {
+        if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+        alert('Sorry, something went wrong sending your message. Please call us instead.');
+      }
+
+      if (file) {
+        if (file.size > MAX_FILE_BYTES) {
+          if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+          alert('That file is larger than 8 MB. Please upload a smaller file or paste a link instead.');
+          return;
+        }
+        readAsBase64(file).then(function (b64) {
+          params.append('resume_b64', b64);
+          params.append('resume_name', file.name);
+          params.append('resume_type', file.type || 'application/octet-stream');
+          return send();
+        }).then(onSuccess).catch(onError);
+      } else {
+        send().then(onSuccess).catch(onError);
+      }
+    });
   });
 })();
 
