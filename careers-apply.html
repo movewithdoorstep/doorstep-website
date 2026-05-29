@@ -391,10 +391,14 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
         <option>Something else (tell us below)</option>
       </select>
 
-      <label for="a-license">License / credentials (if clinical)</label>
-      <input id="a-license" name="license" type="text" placeholder="e.g. PT, DPT — state &amp; license #">
+      <label for="a-license">License / credentials</label>
+      <input id="a-license" name="license" type="text" placeholder="e.g. PT, DPT — VA license #">
 
-      <label for="a-link">Link to your resume or LinkedIn</label>
+      <label for="a-resume">Upload your resume</label>
+      <input id="a-resume" name="resume_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <p class="help" style="color:#9fb0c1">PDF or Word, up to 8&nbsp;MB. Prefer a link? Paste one below and you can skip this.</p>
+
+      <label for="a-link">Or link to your resume / LinkedIn</label>
       <input id="a-link" name="resume_link" type="url" placeholder="https://">
 
       <label for="a-why">Why Doorstep? <span class="req">*</span></label>
@@ -404,7 +408,7 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       <p class="help" style="color:#9fb0c1">By applying you consent to Doorstep contacting you about employment. We don't share your info.</p>
     </form>
     <div class="placeholder" style="margin-top:1rem;border-color:#FFC24B;background:rgba(255,194,75,.12);color:#ffe7b3">
-      <strong style="color:#FFC24B">Heads up:</strong> applications save to the intake sheet. Resumes are collected as a link (Google Drive / LinkedIn) since a static form can't store file uploads.
+      <strong style="color:#FFC24B">Heads up:</strong> attach your resume as a PDF or Word file (up to 8&nbsp;MB), or paste a link. Applications save straight to our intake sheet.
     </div>
   </div>
 </section>
@@ -490,6 +494,21 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
   // Paste the deployed Apps Script Web app URL between the quotes below.
   var DOORSTEP_FORM_ENDPOINT = "https://script.google.com/macros/s/AKfycbzHNMJ2oTXcJ-pnOH7pxOdRfP8fPzsFHfK5zutAEmlMrXNcEbn8MbHm1Ya5xVvs4Hrucw/exec";
 
+  var MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+  function readAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        var s = String(r.result);
+        var comma = s.indexOf(',');
+        resolve(comma === -1 ? s : s.slice(comma + 1)); // strip "data:...;base64,"
+      };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
   document.querySelectorAll('form[data-sheet]').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -503,11 +522,21 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
       var originalLabel = btn ? btn.innerHTML : '';
       if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
 
-      fetch(DOORSTEP_FORM_ENDPOINT, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: new URLSearchParams(new FormData(form))
-      }).then(function () {
+      // Split text fields from any file field.
+      var params = new URLSearchParams();
+      var file = null;
+      new FormData(form).forEach(function (value, key) {
+        if (value instanceof File) { if (value && value.size > 0) { file = value; } }
+        else { params.append(key, value); }
+      });
+
+      function send() {
+        return fetch(DOORSTEP_FORM_ENDPOINT, {
+          method: 'POST', mode: 'no-cors', body: params
+        });
+      }
+
+      function onSuccess() {
         var ok = document.createElement('div');
         ok.className = 'notice';
         ok.setAttribute('role', 'status');
@@ -517,10 +546,27 @@ body.careers .cta-strip .btn--phone { background: var(--navy-deep); color: var(-
         form.reset();
         form.style.display = 'none';
         ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }).catch(function () {
+      }
+      function onError() {
         if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
         alert('Sorry, something went wrong sending your message. Please call us instead.');
-      });
+      }
+
+      if (file) {
+        if (file.size > MAX_FILE_BYTES) {
+          if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+          alert('That file is larger than 8 MB. Please upload a smaller file or paste a link instead.');
+          return;
+        }
+        readAsBase64(file).then(function (b64) {
+          params.append('resume_b64', b64);
+          params.append('resume_name', file.name);
+          params.append('resume_type', file.type || 'application/octet-stream');
+          return send();
+        }).then(onSuccess).catch(onError);
+      } else {
+        send().then(onSuccess).catch(onError);
+      }
     });
   });
 })();
